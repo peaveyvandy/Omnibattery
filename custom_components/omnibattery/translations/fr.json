@@ -592,6 +592,12 @@
         "data": {"name": "Nom", "host": "Adresse IP", "port": "Port HTTP", "username": "Nom d’utilisateur", "password": "Mot de passe"},
         "data_description": {"name": "Nom descriptif permettant identifier cette batterie", "host": "Adresse IP du dispositif Sessy sur le réseau local", "port": "Port HTTP (80 par défaut)", "username": "Nom d’utilisateur local imprimé sur le dongle Sessy", "password": "Mot de passe local imprimé sur le dongle Sessy"}
       },
+      "reconfigure_battery_aecc": {
+        "title": "Reconfigurer la batterie {battery_num} — Connexion (AECC)",
+        "description": "Mettez à jour le point de connexion TCP local et l'identité de l'appareil pour la batterie {battery_num}. Les limites de puissance et les autres réglages sont conservés.",
+        "data": {"name": "Nom", "host": "Adresse IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Modèle"},
+        "data_description": {"name": "Nom descriptif de cette batterie", "host": "Adresse IP locale de la batterie", "port": "Port TCP AECC local (8080 par défaut)", "manufacturer": "Marque de l'appareil, par exemple Sunpura", "model": "Modèle de l'appareil, par exemple S2400"}
+      },
       "reconfigure_battery_anker": {
         "title": "Reconfigure battery {battery_num} — Connection (Anker)",
         "description": "Update connection details for Anker SOLIX Solarbank Max AC / 4 E5000 Pro battery {battery_num}. All other settings are preserved.",
@@ -665,6 +671,12 @@
         "description": "Saisissez les informations de connexion et les identifiants locaux imprimés sur le dongle Sessy de la batterie {battery_num}.",
         "data": {"name": "Nom", "host": "Adresse IP", "port": "Port HTTP", "username": "Nom d’utilisateur", "password": "Mot de passe"},
         "data_description": {"name": "Nom descriptif permettant identifier cette batterie", "host": "Adresse IP du dispositif Sessy sur le réseau local", "port": "Port HTTP (80 par défaut)", "username": "Nom d’utilisateur local imprimé sur le dongle Sessy", "password": "Mot de passe local imprimé sur le dongle Sessy"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configurer la batterie {battery_num} — Connexion (AECC)",
+        "description": "Saisissez la connexion TCP locale et l'identité de l'appareil pour la batterie {battery_num}. Déconnectez les autres clients si la batterie n'accepte qu'une connexion TCP.",
+        "data": {"name": "Nom", "host": "Adresse IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Modèle"},
+        "data_description": {"name": "Nom descriptif de cette batterie", "host": "Adresse IP locale de la batterie", "port": "Port TCP AECC local (8080 par défaut)", "manufacturer": "Marque de l'appareil, par exemple Sunpura", "model": "Modèle de l'appareil, par exemple S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",
@@ -1278,6 +1290,12 @@
         "description": "Modifiez les informations de connexion et les identifiants locaux du dongle de la batterie Sessy {battery_num}.",
         "data": {"name": "Nom", "host": "Adresse IP", "port": "Port HTTP", "username": "Nom d’utilisateur", "password": "Mot de passe"},
         "data_description": {"name": "Nom descriptif permettant identifier cette batterie", "host": "Adresse IP du dispositif Sessy sur le réseau local", "port": "Port HTTP (80 par défaut)", "username": "Nom d’utilisateur local imprimé sur le dongle Sessy", "password": "Mot de passe local imprimé sur le dongle Sessy"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configurer la batterie {battery_num} — Connexion (AECC)",
+        "description": "Saisissez la connexion TCP locale et l'identité de l'appareil pour la batterie {battery_num}. Déconnectez les autres clients si la batterie n'accepte qu'une connexion TCP.",
+        "data": {"name": "Nom", "host": "Adresse IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Modèle"},
+        "data_description": {"name": "Nom descriptif de cette batterie", "host": "Adresse IP locale de la batterie", "port": "Port TCP AECC local (8080 par défaut)", "manufacturer": "Marque de l'appareil, par exemple Sunpura", "model": "Modèle de l'appareil, par exemple S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",

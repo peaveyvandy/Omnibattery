@@ -13,6 +13,7 @@ Choose the route that matches your battery and the way it is connected to Home A
 | Sessy Home Battery | A reachable Sessy dongle and its credentials | **Sessy** | [Sessy](sessy.md) |
 | Hoymiles MS-A2 or supported HiBattery | MQTT configured in Home Assistant and the complete device ID | **Hoymiles MQTT** | [Hoymiles MQTT](hoymiles.md) |
 | Huawei SUN2000 with LUNA2000 | A Modbus TCP endpoint and either Huawei Solar or direct Modbus writes | **Huawei SUN2000 + LUNA2000** | [Huawei](huawei.md) |
+| Sunpura S2400 and compatible AECC-protocol devices | Local TCP access, usually port `8080`; use only one connected client | **AECC local TCP (Sunpura S2400)** | [AECC local TCP](aecc.md) |
 
 ![Battery brand selector](../../assets/screenshots/configuration/battery-brand-form.png){ width="650" style="display: block; margin: 0 auto;" }
 

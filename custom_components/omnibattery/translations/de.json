@@ -592,6 +592,12 @@
         "data": {"name": "Name", "host": "IP-Adresse", "port": "HTTP-Port", "username": "Benutzername", "password": "Passwort"},
         "data_description": {"name": "Beschreibender Name zur Identifizierung dieser Batterie", "host": "IP-Adresse des Sessy-Geräts im lokalen Netzwerk", "port": "HTTP-Port (Standard 80)", "username": "Auf dem Sessy-Dongle aufgedruckter lokaler Benutzername", "password": "Auf dem Sessy-Dongle aufgedrucktes lokales Passwort"}
       },
+      "reconfigure_battery_aecc": {
+        "title": "Batterie {battery_num} neu konfigurieren — Verbindung (AECC)",
+        "description": "Aktualisiere den lokalen TCP-Endpunkt und die Geräteidentität für Batterie {battery_num}. Leistungsgrenzen und übrige Einstellungen bleiben erhalten.",
+        "data": {"name": "Name", "host": "IP-Adresse", "port": "TCP-Port", "manufacturer": "Hersteller", "model": "Modell"},
+        "data_description": {"name": "Beschreibender Name für diese Batterie", "host": "Lokale IP-Adresse der Batterie", "port": "Lokaler AECC-TCP-Port (Standard 8080)", "manufacturer": "Gerätemarke, z. B. Sunpura", "model": "Gerätemodell, z. B. S2400"}
+      },
       "reconfigure_battery_anker": {
         "title": "Reconfigure battery {battery_num} — Connection (Anker)",
         "description": "Update connection details for Anker SOLIX Solarbank Max AC / 4 E5000 Pro battery {battery_num}. All other settings are preserved.",
@@ -665,6 +671,12 @@
         "description": "Geben Sie die Verbindungsdaten und die auf dem Sessy-Dongle aufgedruckten lokalen Zugangsdaten für Batterie {battery_num} ein.",
         "data": {"name": "Name", "host": "IP-Adresse", "port": "HTTP-Port", "username": "Benutzername", "password": "Passwort"},
         "data_description": {"name": "Beschreibender Name zur Identifizierung dieser Batterie", "host": "IP-Adresse des Sessy-Geräts im lokalen Netzwerk", "port": "HTTP-Port (Standard 80)", "username": "Auf dem Sessy-Dongle aufgedruckter lokaler Benutzername", "password": "Auf dem Sessy-Dongle aufgedrucktes lokales Passwort"}
+      },
+      "battery_connection_aecc": {
+        "title": "Batterie {battery_num} konfigurieren — Verbindung (AECC)",
+        "description": "Gib die lokale TCP-Verbindung und Geräteidentität für Batterie {battery_num} ein. Trenne andere Clients, wenn die Batterie nur eine TCP-Verbindung zulässt.",
+        "data": {"name": "Name", "host": "IP-Adresse", "port": "TCP-Port", "manufacturer": "Hersteller", "model": "Modell"},
+        "data_description": {"name": "Beschreibender Name für diese Batterie", "host": "Lokale IP-Adresse der Batterie", "port": "Lokaler AECC-TCP-Port (Standard 8080)", "manufacturer": "Gerätemarke, z. B. Sunpura", "model": "Gerätemodell, z. B. S2400"}
       },
       "battery_connection_huawei": {
         "title": "Batterie {battery_num} einrichten — Verbindung (Huawei)",
@@ -1278,6 +1290,12 @@
         "description": "Ändern Sie die Verbindungsdaten und lokalen Dongle-Zugangsdaten für die Sessy-Batterie {battery_num}.",
         "data": {"name": "Name", "host": "IP-Adresse", "port": "HTTP-Port", "username": "Benutzername", "password": "Passwort"},
         "data_description": {"name": "Beschreibender Name zur Identifizierung dieser Batterie", "host": "IP-Adresse des Sessy-Geräts im lokalen Netzwerk", "port": "HTTP-Port (Standard 80)", "username": "Auf dem Sessy-Dongle aufgedruckter lokaler Benutzername", "password": "Auf dem Sessy-Dongle aufgedrucktes lokales Passwort"}
+      },
+      "battery_connection_aecc": {
+        "title": "Batterie {battery_num} konfigurieren — Verbindung (AECC)",
+        "description": "Gib die lokale TCP-Verbindung und Geräteidentität für Batterie {battery_num} ein. Trenne andere Clients, wenn die Batterie nur eine TCP-Verbindung zulässt.",
+        "data": {"name": "Name", "host": "IP-Adresse", "port": "TCP-Port", "manufacturer": "Hersteller", "model": "Modell"},
+        "data_description": {"name": "Beschreibender Name für diese Batterie", "host": "Lokale IP-Adresse der Batterie", "port": "Lokaler AECC-TCP-Port (Standard 8080)", "manufacturer": "Gerätemarke, z. B. Sunpura", "model": "Gerätemodell, z. B. S2400"}
       },
       "battery_connection_huawei": {
         "title": "Batterie {battery_num} einrichten — Verbindung (Huawei)",

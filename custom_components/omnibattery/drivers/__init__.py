@@ -19,6 +19,8 @@ Drivers:
   - ``hoymiles``: HA MQTT based, push telemetry (MS-A2).
   - ``huawei``: native Modbus-TCP telemetry, set-points via huawei_solar
     services (SUN2000 + LUNA2000).
+  - ``aecc``: local TCP JSON commands and signed register-slot control
+    (Sunpura S2400 and compatible AECC devices).
 
 See ``docs/plans/driver_abstraction.md`` for the phased extraction plan.
 """
@@ -38,6 +40,7 @@ from .anker import AnkerModbusDriver
 from .sessy import SessyLocalDriver
 from .hoymiles import HoymilesMqttDriver
 from .huawei import HuaweiSolarDriver
+from .aecc import AeccTcpDriver
 
 __all__ = [
     "DELIVERED_AC_POWER_KEY",
@@ -53,4 +56,5 @@ __all__ = [
     "SessyLocalDriver",
     "HoymilesMqttDriver",
     "HuaweiSolarDriver",
+    "AeccTcpDriver",
 ]

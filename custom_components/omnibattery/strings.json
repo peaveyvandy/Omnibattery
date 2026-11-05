@@ -114,7 +114,7 @@
           "brand": "Brand"
         },
         "data_description": {
-          "brand": "Marstek Venus: Modbus TCP. Zendure SolarFlow: local HTTP (HEMS must be disabled for Omnibattery control). Anker SOLIX Solarbank Max AC / 4 E5000 Pro: Modbus TCP (enable Modbus TCP under Third-Party Control in the Anker app; only one Modbus client at a time). Sessy: local HTTP."
+          "brand": "Marstek Venus: Modbus TCP. Zendure SolarFlow: local HTTP (HEMS must be disabled for Omnibattery control). Anker SOLIX Solarbank Max AC / 4 E5000 Pro: Modbus TCP (enable Modbus TCP under Third-Party Control in the Anker app; only one Modbus client at a time). Sessy: local HTTP. Sunpura S2400: local AECC TCP (only one client at a time)."
         }
       },
       "battery_connection": {
@@ -158,6 +158,12 @@
         "description": "Enter the connection details and the local credentials printed on the Sessy dongle for battery {battery_num}.",
         "data": {"name": "Name", "host": "IP Address", "port": "HTTP Port", "username": "Username", "password": "Password"},
         "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the Sessy device on your local network", "port": "HTTP port (default 80)", "username": "Local username printed on the Sessy dongle", "password": "Local password printed on the Sessy dongle"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configure battery {battery_num} — Connection (AECC)",
+        "description": "Enter local TCP connection details and the device identity for battery {battery_num}. Disconnect other clients if the battery allows only one TCP connection.",
+        "data": {"name": "Name", "host": "IP Address", "port": "TCP Port", "manufacturer": "Manufacturer", "model": "Model"},
+        "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the battery on your local network", "port": "Local AECC TCP port (default 8080)", "manufacturer": "Device brand, for example Sunpura", "model": "Device model, for example S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",
@@ -621,6 +627,12 @@
         "data": {"name": "Name", "host": "IP Address", "port": "HTTP Port", "username": "Username", "password": "Password"},
         "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the Sessy device on your local network", "port": "HTTP port (default 80)", "username": "Local username printed on the Sessy dongle", "password": "Local password printed on the Sessy dongle"}
       },
+      "reconfigure_battery_aecc": {
+        "title": "Reconfigure battery {battery_num} — Connection (AECC)",
+        "description": "Update the local TCP endpoint and device identity for battery {battery_num}. Power limits and other settings are preserved.",
+        "data": {"name": "Name", "host": "IP Address", "port": "TCP Port", "manufacturer": "Manufacturer", "model": "Model"},
+        "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the battery on your local network", "port": "Local AECC TCP port (default 8080)", "manufacturer": "Device brand, for example Sunpura", "model": "Device model, for example S2400"}
+      },
       "reconfigure_battery_anker": {
         "title": "Reconfigure battery {battery_num} — Connection (Anker)",
         "description": "Update connection details for Anker SOLIX Solarbank Max AC / 4 E5000 Pro battery {battery_num}. All other settings are preserved.",
@@ -838,7 +850,7 @@
           "brand": "Brand"
         },
         "data_description": {
-          "brand": "Marstek Venus: Modbus TCP. Zendure SolarFlow: local HTTP (HEMS must be disabled for Omnibattery control). Anker SOLIX Solarbank Max AC / 4 E5000 Pro: Modbus TCP (enable Modbus TCP under Third-Party Control in the Anker app; only one Modbus client at a time). Sessy: local HTTP."
+          "brand": "Marstek Venus: Modbus TCP. Zendure SolarFlow: local HTTP (HEMS must be disabled for Omnibattery control). Anker SOLIX Solarbank Max AC / 4 E5000 Pro: Modbus TCP (enable Modbus TCP under Third-Party Control in the Anker app; only one Modbus client at a time). Sessy: local HTTP. Sunpura S2400: local AECC TCP (only one client at a time)."
         }
       },
       "battery_connection": {
@@ -1269,6 +1281,12 @@
         "description": "Modify the connection details and local dongle credentials for the Sessy battery {battery_num}.",
         "data": {"name": "Name", "host": "IP Address", "port": "HTTP Port", "username": "Username", "password": "Password"},
         "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the Sessy device on your local network", "port": "HTTP port (default 80)", "username": "Local username printed on the Sessy dongle", "password": "Local password printed on the Sessy dongle"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configure battery {battery_num} — Connection (AECC)",
+        "description": "Enter local TCP connection details and the device identity for battery {battery_num}. Disconnect other clients if the battery allows only one TCP connection.",
+        "data": {"name": "Name", "host": "IP Address", "port": "TCP Port", "manufacturer": "Manufacturer", "model": "Model"},
+        "data_description": {"name": "Descriptive name to identify this battery", "host": "IP address of the battery on your local network", "port": "Local AECC TCP port (default 8080)", "manufacturer": "Device brand, for example Sunpura", "model": "Device model, for example S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",

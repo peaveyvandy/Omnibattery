@@ -592,6 +592,12 @@
         "data": {"name": "Nom", "host": "Adreça IP", "port": "Port HTTP", "username": "Usuari", "password": "Contrasenya"},
         "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP del dispositiu Sessy a la xarxa local", "port": "Port HTTP (per defecte 80)", "username": "Usuari local imprès al dongle Sessy", "password": "Contrasenya local impresa al dongle Sessy"}
       },
+      "reconfigure_battery_aecc": {
+        "title": "Reconfigura la bateria {battery_num} — Connexió (AECC)",
+        "description": "Actualitza l'endpoint TCP local i la identitat del dispositiu per a la bateria {battery_num}. Es conserven els límits de potència i la resta de configuració.",
+        "data": {"name": "Nom", "host": "Adreça IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Model"},
+        "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP local de la bateria", "port": "Port TCP AECC local (predeterminat 8080)", "manufacturer": "Marca del dispositiu, per exemple Sunpura", "model": "Model del dispositiu, per exemple S2400"}
+      },
       "reconfigure_battery_anker": {
         "title": "Reconfigure battery {battery_num} — Connection (Anker)",
         "description": "Update connection details for Anker SOLIX Solarbank Max AC / 4 E5000 Pro battery {battery_num}. All other settings are preserved.",
@@ -665,6 +671,12 @@
         "description": "Introdueix les dades de connexió i les credencials locals impreses al dongle Sessy de la bateria {battery_num}.",
         "data": {"name": "Nom", "host": "Adreça IP", "port": "Port HTTP", "username": "Usuari", "password": "Contrasenya"},
         "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP del dispositiu Sessy a la xarxa local", "port": "Port HTTP (per defecte 80)", "username": "Usuari local imprès al dongle Sessy", "password": "Contrasenya local impresa al dongle Sessy"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configura la bateria {battery_num} — Connexió (AECC)",
+        "description": "Introdueix la connexió TCP local i la identitat del dispositiu per a la bateria {battery_num}. Desconnecta altres clients si la bateria només permet una connexió TCP.",
+        "data": {"name": "Nom", "host": "Adreça IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Model"},
+        "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP local de la bateria", "port": "Port TCP AECC local (predeterminat 8080)", "manufacturer": "Marca del dispositiu, per exemple Sunpura", "model": "Model del dispositiu, per exemple S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",
@@ -1278,6 +1290,12 @@
         "description": "Modifica les dades de connexió i les credencials locals del dongle de la bateria Sessy {battery_num}.",
         "data": {"name": "Nom", "host": "Adreça IP", "port": "Port HTTP", "username": "Usuari", "password": "Contrasenya"},
         "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP del dispositiu Sessy a la xarxa local", "port": "Port HTTP (per defecte 80)", "username": "Usuari local imprès al dongle Sessy", "password": "Contrasenya local impresa al dongle Sessy"}
+      },
+      "battery_connection_aecc": {
+        "title": "Configura la bateria {battery_num} — Connexió (AECC)",
+        "description": "Introdueix la connexió TCP local i la identitat del dispositiu per a la bateria {battery_num}. Desconnecta altres clients si la bateria només permet una connexió TCP.",
+        "data": {"name": "Nom", "host": "Adreça IP", "port": "Port TCP", "manufacturer": "Fabricant", "model": "Model"},
+        "data_description": {"name": "Nom descriptiu per identificar aquesta bateria", "host": "Adreça IP local de la bateria", "port": "Port TCP AECC local (predeterminat 8080)", "manufacturer": "Marca del dispositiu, per exemple Sunpura", "model": "Model del dispositiu, per exemple S2400"}
       },
       "battery_connection_huawei": {
         "title": "Configure battery {battery_num} — Connection (Huawei)",

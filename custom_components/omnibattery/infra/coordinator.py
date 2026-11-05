@@ -27,6 +27,7 @@ from ..drivers.anker import AnkerModbusDriver
 from ..drivers.sessy import SessyLocalDriver
 from ..drivers.hoymiles import HoymilesMqttDriver
 from ..drivers.huawei import HuaweiSolarDriver
+from ..drivers.aecc import AeccTcpDriver
 from ..drivers.base import SetpointResult
 from ..backup_discharge_store import BackupDischargeEnergyStore
 from ..energy import BackupDischargeAccumulator
@@ -328,6 +329,8 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                  huawei_emma_slave_id: int | None = None,
                  username: str = "",
                  password: str = "",
+                 aecc_manufacturer: str = "Sunpura",
+                 aecc_model: str = "S2400",
                  battery_manual_mode_enabled: bool = False,
                  dc_pv_connected: bool = True,
                  device_max_charge_power: int | None = None,
@@ -364,7 +367,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
         self.brand = brand
         self.ems_version = ems_version
         self.zendure_model = zendure_model
-        if self.brand in ("zendure", "anker", "hoymiles", "huawei"):
+        if self.brand in ("zendure", "anker", "hoymiles", "huawei", "aecc"):
             full_charge_voltage_taper_enabled = False
 
         # Validate and store battery version
@@ -551,6 +554,15 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
             self.driver = HoymilesMqttDriver(
                 hass, self.host,
                 model=hoymiles_model,
+                max_charge_power_w=self.configured_max_charge_power,
+                max_discharge_power_w=self.configured_max_discharge_power,
+            )
+        elif self.brand == "aecc":
+            self.driver = AeccTcpDriver(
+                self.host,
+                port=self.port,
+                manufacturer=aecc_manufacturer,
+                model=aecc_model,
                 max_charge_power_w=self.configured_max_charge_power,
                 max_discharge_power_w=self.configured_max_discharge_power,
             )
@@ -888,6 +900,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                 else "Sessy" if self.brand == "sessy"
                 else "Hoymiles" if self.brand == "hoymiles"
                 else "Huawei" if self.brand == "huawei"
+                else self.driver.manufacturer if self.brand == "aecc"
                 else "Marstek"
             ),
             "model": self.driver.model_label or (
@@ -895,6 +908,7 @@ class MarstekVenusDataUpdateCoordinator(DataUpdateCoordinator):
                 else "Solarbank Max AC" if self.brand == "anker"
                 else "Sessy" if self.brand == "sessy"
                 else "MS-A2" if self.brand == "hoymiles"
+                else self.driver.model_label if self.brand == "aecc"
                 else "Venus"
             ),
         }

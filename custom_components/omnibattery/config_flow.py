@@ -153,6 +153,7 @@ from .drivers.zendure import (
 )
 from .drivers.anker import AnkerModbusDriver
 from .drivers.sessy import SessyLocalDriver
+from .drivers.aecc import AeccTcpDriver
 from .drivers.huawei import HuaweiSolarDriver
 from .drivers.hoymiles import (
     DEFAULT_HOYMILES_MODEL,
@@ -167,6 +168,8 @@ from .pricing.calculations import parse_zonneplan_prices
 _ANKER_MAX_POWER_W = 3500
 _SESSY_MAX_CHARGE_POWER_W = 2200
 _SESSY_MAX_DISCHARGE_POWER_W = 1700
+_AECC_MAX_POWER_W = 2400
+_AECC_DEFAULT_POWER_W = 800
 _SESSY_DEFAULT_MIN_SOC = 5
 _HOYMILES_MODEL_AUTO = "auto"
 
@@ -549,6 +552,8 @@ def _soc_selector_limits(brand: str) -> tuple[int, int, int, int, int, int]:
     elif brand == "huawei":
         # The inverter keeps its own discharge cutoff as a backstop; this window
         # is what Omnibattery enforces on top of it.
+        min_lo, min_hi, min_default = 0, 30, 10
+    elif brand == "aecc":
         min_lo, min_hi, min_default = 0, 30, 10
     else:
         min_lo, min_hi, min_default = 12, 30, 12
@@ -1381,6 +1386,9 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
         elif brand == "sessy":
             _LOGGER.info("Probing Sessy device at %s:%s", host, port)
             result = await SessyLocalDriver.probe(host, port, username, password)
+        elif brand == "aecc":
+            _LOGGER.info("Probing AECC device at %s:%s", host, port)
+            result = await AeccTcpDriver.probe(host, port)
         elif brand == "anker":
             _LOGGER.info("Probing Anker Solarbank at %s:%s slave %s", host, port, slave_id)
             result, _ = await AnkerModbusDriver.probe(host, port, slave_id)
@@ -1608,6 +1616,8 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 return await self.async_step_battery_connection_sessy()
             if brand == "huawei":
                 return await self.async_step_battery_connection_huawei()
+            if brand == "aecc":
+                return await self.async_step_battery_connection_aecc()
             return await self.async_step_battery_connection()
 
         return self.async_show_form(
@@ -1624,6 +1634,7 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                                 {"value": "sessy", "label": "Sessy"},
                                 {"value": "hoymiles", "label": "Hoymiles MQTT"},
                                 {"value": "huawei", "label": "Huawei SUN2000 + LUNA2000"},
+                                {"value": "aecc", "label": "AECC local TCP (Sunpura S2400)"},
                             ],
                             mode=SelectSelectorMode.DROPDOWN,
                         )),
@@ -1812,6 +1823,50 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
         }), errors=errors, description_placeholders={"battery_num": str(self.battery_index + 1)})
+
+    async def async_step_battery_connection_aecc(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure a Sunpura/AECC device over its local TCP connection."""
+        errors: dict[str, str] = {}
+        battery_num = self.battery_index + 1
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = int(user_input.get(CONF_PORT, 8080))
+            if not host:
+                errors["base"] = "host_required"
+            elif await AeccTcpDriver.probe(host, port):
+                self._current_battery_data.update({
+                    CONF_NAME: user_input[CONF_NAME].strip(),
+                    CONF_HOST: host,
+                    CONF_PORT: port,
+                    "brand": "aecc",
+                    "manufacturer": user_input["manufacturer"].strip() or "AECC",
+                    "model": user_input["model"].strip() or "S2400",
+                    "max_charge_power": _AECC_DEFAULT_POWER_W,
+                    "max_discharge_power": _AECC_DEFAULT_POWER_W,
+                })
+                return await self.async_step_battery_limits()
+            else:
+                errors["base"] = "cannot_connect"
+
+        return self.async_show_form(
+            step_id="battery_connection_aecc",
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=f"Sunpura S2400 {battery_num}"): str,
+                vol.Required(CONF_HOST): str,
+                vol.Optional(CONF_PORT, default=8080): vol.All(
+                    NumberSelector(
+                        NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Coerce(int),
+                ),
+                vol.Required("manufacturer", default="Sunpura"): str,
+                vol.Required("model", default="S2400"): str,
+            }),
+            errors=errors,
+            description_placeholders={"battery_num": str(battery_num)},
+        )
 
     async def async_step_battery_connection_huawei(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Configure a Huawei SUN2000 + LUNA2000.
@@ -2143,6 +2198,8 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             max_charge_power, max_discharge_power = _hoymiles_power_ceilings(self._current_battery_data)
         elif brand == "huawei":
             max_charge_power, max_discharge_power = _huawei_power_ceilings(self._current_battery_data)
+        elif brand == "aecc":
+            max_charge_power = max_discharge_power = _AECC_MAX_POWER_W
         else:
             battery_version = self._current_battery_data.get(CONF_BATTERY_VERSION, DEFAULT_VERSION)
             max_charge_power = max_discharge_power = max_power_for_battery_version(
@@ -2191,10 +2248,10 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                     user_input.get(CONF_DC_PV_CONNECTED, True)
                 ) if merged.get(CONF_BATTERY_VERSION) in ("vA", "vD") else False
                 merged[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED] = (
-                    False if brand in ("zendure", "anker", "sessy", "hoymiles", "huawei")
+                    False if brand in ("zendure", "anker", "sessy", "hoymiles", "huawei", "aecc")
                     else user_input.get(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED)
                 )
-                if brand in ("zendure", "sessy", "hoymiles"):
+                if brand in ("zendure", "sessy", "hoymiles", "aecc"):
                     capacity_default = (
                         _hoymiles_capacity_default(self._current_battery_data)
                         if brand == "hoymiles" else 0.0
@@ -2240,9 +2297,9 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             and self._current_battery_data.get(CONF_BATTERY_VERSION) in ("vA", "vD")
         ):
             _schema[vol.Required(CONF_DC_PV_CONNECTED, default=True)] = BooleanSelector()
-        if brand not in ("zendure", "anker", "sessy", "hoymiles", "huawei"):
+        if brand not in ("zendure", "anker", "sessy", "hoymiles", "huawei", "aecc"):
             _schema[vol.Required(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, default=DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED)] = bool
-        if brand in ("sessy", "zendure"):
+        if brand in ("sessy", "zendure", "aecc"):
             # Neither reports a nominal capacity, and leaving it at 0 silently
             # breaks system SOC, cycles, predictive charging and pricing math.
             _schema[vol.Required("battery_capacity_kwh")] = NumberSelector(
@@ -2933,6 +2990,8 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
             return await self.async_step_reconfigure_battery_hoymiles(user_input)
         if current.get("brand", "marstek") == "huawei":
             return await self.async_step_reconfigure_battery_huawei(user_input)
+        if current.get("brand", "marstek") == "aecc":
+            return await self.async_step_reconfigure_battery_aecc(user_input)
 
         errors = {}
 
@@ -3161,6 +3220,72 @@ class MarstekVenusConfigFlow(LegacyDomainMigrationMixin, ConfigFlow, domain=DOMA
                 ): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
+            }),
+            errors=errors,
+            description_placeholders={"battery_num": str(battery_num)},
+        )
+
+    async def async_step_reconfigure_battery_aecc(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Update an AECC device's endpoint and displayed identity."""
+        entry = self._get_reconfigure_entry()
+        current_batteries = entry.data.get("batteries", [])
+        battery_num = self.battery_index + 1
+        current = (
+            current_batteries[self.battery_index]
+            if self.battery_index < len(current_batteries)
+            else {}
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = int(user_input.get(CONF_PORT, 8080))
+            if not host:
+                errors["base"] = "host_required"
+            elif not await AeccTcpDriver.probe(host, port):
+                errors["base"] = "cannot_connect"
+            else:
+                old_host, old_port = current.get(CONF_HOST), current.get(CONF_PORT)
+                if old_host and old_port and (old_host != host or old_port != port):
+                    self._migrate_battery_registry_ids(
+                        entry, old_host, old_port, host, port
+                    )
+                updated = dict(current)
+                updated.update({
+                    CONF_NAME: user_input[CONF_NAME].strip(),
+                    CONF_HOST: host,
+                    CONF_PORT: port,
+                    "brand": "aecc",
+                    "manufacturer": user_input["manufacturer"].strip() or "AECC",
+                    "model": user_input["model"].strip() or "S2400",
+                })
+                self._reconfigure_batteries.append(updated)
+                self.battery_index += 1
+                if self.battery_index >= len(current_batteries):
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data_updates={"batteries": self._reconfigure_batteries},
+                    )
+                return await self.async_step_reconfigure_battery()
+
+        return self.async_show_form(
+            step_id="reconfigure_battery_aecc",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NAME, default=current.get(CONF_NAME, f"Sunpura S2400 {battery_num}")
+                ): str,
+                vol.Required(CONF_HOST, default=current.get(CONF_HOST, "")): str,
+                vol.Optional(CONF_PORT, default=current.get(CONF_PORT, 8080)): vol.All(
+                    NumberSelector(
+                        NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Coerce(int),
+                ),
+                vol.Required(
+                    "manufacturer", default=current.get("manufacturer", "Sunpura")
+                ): str,
+                vol.Required("model", default=current.get("model", "S2400")): str,
             }),
             errors=errors,
             description_placeholders={"battery_num": str(battery_num)},
@@ -3714,6 +3839,10 @@ class OptionsFlowHandler(OptionsFlow):
             ok, _ = await AnkerModbusDriver.probe(host, port, slave_id)
             return ok
 
+        if brand == "aecc":
+            _LOGGER.info("Probing AECC device at %s:%s", host, port)
+            return await AeccTcpDriver.probe(host, port)
+
         # Marstek: handle single-connection-slot constraint.
         entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {})
         coordinators = entry_data.get("coordinators", [])
@@ -4081,6 +4210,8 @@ class OptionsFlowHandler(OptionsFlow):
                 return await self.async_step_battery_connection_huawei()
             if brand == "hoymiles":
                 return await self.async_step_battery_connection_hoymiles()
+            if brand == "aecc":
+                return await self.async_step_battery_connection_aecc()
             return await self.async_step_battery_connection()
 
         return self.async_show_form(
@@ -4097,6 +4228,7 @@ class OptionsFlowHandler(OptionsFlow):
                                 {"value": "sessy", "label": "Sessy"},
                                 {"value": "hoymiles", "label": "Hoymiles MQTT"},
                                 {"value": "huawei", "label": "Huawei SUN2000 + LUNA2000"},
+                                {"value": "aecc", "label": "AECC local TCP (Sunpura S2400)"},
                             ],
                             mode=SelectSelectorMode.DROPDOWN,
                         )),
@@ -4307,6 +4439,67 @@ class OptionsFlowHandler(OptionsFlow):
                 ): TextSelector(
                     TextSelectorConfig(type=TextSelectorType.PASSWORD)
                 ),
+            }),
+            errors=errors,
+            description_placeholders={"battery_num": str(battery_num)},
+        )
+
+    async def async_step_battery_connection_aecc(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure an AECC endpoint in the options flow."""
+        errors: dict[str, str] = {}
+        current_batteries = self.config_entry.data.get("batteries", [])
+        current = (
+            current_batteries[self.battery_index]
+            if self.battery_index < len(current_batteries)
+            else {}
+        )
+        current_aecc = current if current.get("brand") == "aecc" else {}
+        battery_num = self.battery_index + 1
+
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            port = int(user_input.get(CONF_PORT, 8080))
+            if not host:
+                errors["base"] = "host_required"
+            elif await AeccTcpDriver.probe(host, port):
+                self._current_battery_data.update({
+                    CONF_NAME: user_input[CONF_NAME].strip(),
+                    CONF_HOST: host,
+                    CONF_PORT: port,
+                    "brand": "aecc",
+                    "manufacturer": user_input["manufacturer"].strip() or "AECC",
+                    "model": user_input["model"].strip() or "S2400",
+                    "max_charge_power": int(
+                        current_aecc.get("max_charge_power", _AECC_DEFAULT_POWER_W)
+                    ),
+                    "max_discharge_power": int(
+                        current_aecc.get("max_discharge_power", _AECC_DEFAULT_POWER_W)
+                    ),
+                })
+                return await self.async_step_battery_limits()
+            else:
+                errors["base"] = "cannot_connect"
+
+        return self.async_show_form(
+            step_id="battery_connection_aecc",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NAME,
+                    default=current.get(CONF_NAME, f"Sunpura S2400 {battery_num}"),
+                ): str,
+                vol.Required(CONF_HOST, default=current.get(CONF_HOST, "")): str,
+                vol.Optional(CONF_PORT, default=current.get(CONF_PORT, 8080)): vol.All(
+                    NumberSelector(
+                        NumberSelectorConfig(min=1, max=65535, step=1, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Coerce(int),
+                ),
+                vol.Required(
+                    "manufacturer", default=current.get("manufacturer", "Sunpura")
+                ): str,
+                vol.Required("model", default=current.get("model", "S2400")): str,
             }),
             errors=errors,
             description_placeholders={"battery_num": str(battery_num)},
@@ -4729,6 +4922,8 @@ class OptionsFlowHandler(OptionsFlow):
                 max_charge_power, max_discharge_power = _hoymiles_power_ceilings(self._current_battery_data)
             elif brand == "huawei":
                 max_charge_power, max_discharge_power = _huawei_power_ceilings(self._current_battery_data)
+            elif brand == "aecc":
+                max_charge_power = max_discharge_power = _AECC_MAX_POWER_W
             else:
                 battery_version = self._current_battery_data.get(CONF_BATTERY_VERSION, DEFAULT_VERSION)
                 max_charge_power = max_discharge_power = max_power_for_battery_version(
@@ -4791,10 +4986,10 @@ class OptionsFlowHandler(OptionsFlow):
                     user_input.get(CONF_DC_PV_CONNECTED, True)
                 ) if merged.get(CONF_BATTERY_VERSION) in ("vA", "vD") else False
                 merged[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED] = (
-                    False if brand in ("zendure", "anker", "sessy", "hoymiles", "huawei")
+                    False if brand in ("zendure", "anker", "sessy", "hoymiles", "huawei", "aecc")
                     else user_input.get(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, DEFAULT_FULL_CHARGE_VOLTAGE_TAPER_ENABLED)
                 )
-                if brand in ("zendure", "sessy", "hoymiles"):
+                if brand in ("zendure", "sessy", "hoymiles", "aecc"):
                     capacity_default = (
                         _hoymiles_capacity_default(self._current_battery_data)
                         if brand == "hoymiles" else 0.0
@@ -4902,9 +5097,9 @@ class OptionsFlowHandler(OptionsFlow):
                     default=defaults[CONF_DC_PV_CONNECTED],
                 )
             ] = BooleanSelector()
-        if brand not in ("zendure", "anker", "sessy", "hoymiles", "huawei"):
+        if brand not in ("zendure", "anker", "sessy", "hoymiles", "huawei", "aecc"):
             _schema[vol.Required(CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED, default=defaults[CONF_FULL_CHARGE_VOLTAGE_TAPER_ENABLED])] = bool
-        if brand in ("sessy", "zendure"):
+        if brand in ("sessy", "zendure", "aecc"):
             saved_capacity = float(defaults["battery_capacity_kwh"])
             capacity_field = (
                 vol.Required("battery_capacity_kwh", default=saved_capacity)

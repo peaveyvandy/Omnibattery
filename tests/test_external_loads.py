@@ -18,6 +18,7 @@ import pytest
 from homeassistant.util import dt as dt_util
 
 from custom_components.omnibattery import ChargeDischargeController
+from custom_components.omnibattery.const.integration_const import MAX_SENSOR_STALE_S
 from custom_components.omnibattery.infra.external_loads import ExternalLoads
 
 
@@ -33,11 +34,22 @@ class _FakeStates:
         return self._mapping.get(entity_id)
 
 
-def _state(value, unit="W", **extra_attributes):
+def _state(
+    value, unit="W", *, last_reported=None, last_updated=None, **extra_attributes
+):
     """A minimal stand-in for a Home Assistant State object."""
     attributes = {"unit_of_measurement": unit}
     attributes.update(extra_attributes)
-    return SimpleNamespace(state=str(value), attributes=attributes)
+    if last_updated is None:
+        last_updated = dt_util.utcnow()
+    if last_reported is None:
+        last_reported = last_updated
+    return SimpleNamespace(
+        state=str(value),
+        attributes=attributes,
+        last_updated=last_updated,
+        last_reported=last_reported,
+    )
 
 
 def _controller(excluded_devices, states=None, previous_power=0.0,
@@ -83,6 +95,27 @@ def test_delta_kw_included_device_is_subtracted():
     assert loads.consumption_delta_kw() == pytest.approx(-0.5)
 
 
+def test_delta_kw_ignores_stale_device_sensor():
+    stale = dt_util.utcnow() - timedelta(seconds=MAX_SENSOR_STALE_S + 1)
+    loads = _controller(
+        [_device(included_in_consumption=True)],
+        {"sensor.dev": _state(500, last_reported=stale)},
+    )
+    assert loads.consumption_delta_kw() == 0.0
+
+
+def test_delta_kw_falls_back_to_last_updated_when_last_reported_is_missing():
+    stale = dt_util.utcnow() - timedelta(seconds=MAX_SENSOR_STALE_S + 1)
+    state = SimpleNamespace(
+        state="500",
+        attributes={"unit_of_measurement": "W"},
+        last_updated=stale,
+    )
+    loads = _controller([_device()], {"sensor.dev": state})
+
+    assert loads.consumption_delta_kw() == 0.0
+
+
 def test_delta_kw_not_included_device_is_added():
     loads = _controller([_device(included_in_consumption=False)],
                        {"sensor.dev": _state(500)})
@@ -124,8 +157,10 @@ def test_delta_kw_skips_unusable_devices(device, states):
 
 def test_adjustment_no_devices_is_zero_and_resets_included():
     loads = _controller([])
+    loads._controller._solar_surplus_discharge_blocked = True
     assert loads.calculate_adjustment() == 0.0
     assert loads._controller._excluded_included_adjustment == 0.0
+    assert loads._controller._solar_surplus_discharge_blocked is False
 
 
 def test_adjustment_included_no_surplus_subtracts():
@@ -133,6 +168,72 @@ def test_adjustment_included_no_surplus_subtracts():
                        {"sensor.dev": _state(500)})
     assert loads.calculate_adjustment() == pytest.approx(500.0)
     assert loads._controller._excluded_included_adjustment == pytest.approx(500.0)
+
+
+def test_adjustment_ignores_stale_sensor_and_blocks_discharge():
+    stale = dt_util.utcnow() - timedelta(seconds=MAX_SENSOR_STALE_S + 1)
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=True)],
+        {
+            "sensor.dev": _state(2295, last_reported=stale),
+            "sensor.solar": _state(3000),
+            "sensor.home": _state(2000),
+        },
+        solar_production_sensor="sensor.solar",
+        home_consumption_sensor="sensor.home",
+    )
+
+    assert loads.calculate_adjustment() == 0.0
+    assert loads._controller._excluded_included_adjustment == 0.0
+    assert loads._controller._solar_surplus_discharge_blocked is True
+
+
+def test_pv_base_load_ignores_stale_device_power():
+    stale = dt_util.utcnow() - timedelta(seconds=MAX_SENSOR_STALE_S + 1)
+    loads = _controller(
+        [_device(included_in_consumption=True)],
+        {"sensor.dev": _state(1500, last_reported=stale)},
+    )
+
+    assert loads._included_device_power_w() == 0.0
+
+
+def test_adjustment_uses_recent_last_reported_even_if_state_did_not_change():
+    now = dt_util.utcnow()
+    old_update = now - timedelta(seconds=MAX_SENSOR_STALE_S + 10)
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=False)],
+        {"sensor.dev": _state(500, last_updated=old_update, last_reported=now)},
+    )
+
+    assert loads.calculate_adjustment() == pytest.approx(500.0)
+    assert loads._controller._solar_surplus_discharge_blocked is False
+
+
+def test_adjustment_unavailable_sensor_blocks_discharge_until_recovered():
+    states = {"sensor.dev": _state("unavailable")}
+    loads = _controller(
+        [_device(included_in_consumption=True, allow_solar_surplus=False)],
+        states,
+    )
+
+    assert loads.calculate_adjustment() == 0.0
+    assert loads._controller._solar_surplus_discharge_blocked is True
+
+    states["sensor.dev"] = _state(500)
+    assert loads.calculate_adjustment() == pytest.approx(500.0)
+    assert loads._controller._solar_surplus_discharge_blocked is False
+
+
+def test_adjustment_stale_sensor_does_not_block_when_exclusion_is_zero():
+    stale = dt_util.utcnow() - timedelta(seconds=MAX_SENSOR_STALE_S + 1)
+    loads = _controller(
+        [_device(included_in_consumption=True, exclusion_pct=0)],
+        {"sensor.dev": _state(500, last_reported=stale)},
+    )
+
+    assert loads.calculate_adjustment() == 0.0
+    assert loads._controller._solar_surplus_discharge_blocked is False
 
 
 def test_adjustment_not_included_adds_discharge():

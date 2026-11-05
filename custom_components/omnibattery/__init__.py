@@ -9603,12 +9603,11 @@ class ChargeDischargeController:
                 self._active_discharge_batteries = []
                 operation_restricted = True
 
-        # Solar surplus excluded device active: battery may charge but must not discharge.
-        # Discharge would cause oscillation because the device adjustment flips sign with
-        # previous_power — there is no stable fixed point when device_power > solar_surplus.
+        # Excluded-device safety: battery may charge but must not discharge when the
+        # device is active or its power reading is unavailable/stale.
         if not operation_restricted and self._solar_surplus_discharge_blocked and new_power < 0:
             _LOGGER.info(
-                "ChargeDischargeController: Solar surplus excluded device active – blocking battery discharge"
+                "ChargeDischargeController: Excluded-device safety block active – blocking battery discharge"
             )
             new_power = 0
             self._active_discharge_batteries = []

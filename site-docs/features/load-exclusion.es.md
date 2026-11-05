@@ -71,6 +71,10 @@ Si el dispositivo tiene configurada demanda restante prevista, la carga predicti
 
     Si el contador principal no ve el dispositivo, Omnibattery suma primero su potencia para reconstruir la demanda total y después aplica el tratamiento configurado. Esto evita eliminar la misma carga dos veces.
 
+    **Protección ante sensores de potencia desactualizados**
+
+    Una lectura numérica de un dispositivo excluido solo se usa si su último informe tiene como máximo 65 segundos (`last_reported`, con `last_updated` como alternativa). Las lecturas no disponibles o desactualizadas se ignoran en la corrección de carga, el perfil de consumo y el cálculo del excedente solar. Si el dispositivo está incluido en el contador principal y su porcentaje de exclusión es mayor que cero, se bloquea la descarga de la batería hasta que vuelva una lectura reciente. Esta protección conservadora puede impedir temporalmente la descarga aunque el dispositivo esté inactivo; se registra una advertencia mientras el sensor no esté disponible o esté desactualizado.
+
     **Temporización de Dynamic Power Control**
 
     Se considera que un dispositivo medido está consumiendo por encima de 100 W. En la primera demanda, la carga de batería cede durante 30 segundos. Un aumento de al menos 200 W en el margen disponible, calculado como producción solar menos potencia de dispositivo, inicia otra cesión de 20 segundos. Si no hay sensor de producción solar disponible, Omnibattery sondea durante 20 segundos cada 5 minutos en su lugar.

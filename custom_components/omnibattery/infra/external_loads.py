@@ -22,6 +22,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import EnergyConverter
 
+from ..const.integration_const import MAX_SENSOR_STALE_S
+
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
@@ -101,6 +103,7 @@ class ExternalLoads:
         self._dynamic_solar_reference_w: dict[str, float] = {}
         self._dynamic_device_reference_w: dict[str, float] = {}
         self._dynamic_was_drawing: dict[str, bool] = {}
+        self._device_sensor_issues: dict[str, str] = {}
         self.dynamic_power_control_status: dict[str, Any] = {
             "active": False,
             "charge_blocked": False,
@@ -132,6 +135,49 @@ class ExternalLoads:
     def _activity_sensor_is_active(self, sensor_id: str | None) -> bool:
         """Read one optional device-activity entity."""
         return bool(sensor_id) and self._state_is_active(self._hass.states.get(sensor_id))
+
+    def _device_sensor_state(self, entity_id: str) -> Any | None:
+        """Return a current device power state, rejecting unavailable or stale data."""
+        state = self._hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            self._record_device_sensor_issue(entity_id, "unavailable")
+            return None
+
+        reported_at = getattr(state, "last_reported", None) or getattr(
+            state, "last_updated", None
+        )
+        try:
+            age_s = (dt_util.utcnow() - reported_at).total_seconds()
+        except (TypeError, AttributeError):
+            age_s = float("inf")
+
+        if age_s > MAX_SENSOR_STALE_S:
+            self._record_device_sensor_issue(entity_id, "stale")
+            return None
+
+        return state
+
+    def _record_device_sensor_issue(self, entity_id: str, issue: str | None) -> None:
+        """Log an unavailable/stale sensor once, and log when it recovers."""
+        previous_issue = self._device_sensor_issues.get(entity_id)
+        if issue is None:
+            if previous_issue is not None:
+                _LOGGER.info("Excluded-device sensor %s has recovered", entity_id)
+                self._device_sensor_issues.pop(entity_id, None)
+            return
+
+        if issue != previous_issue:
+            description = (
+                f"stale for more than {MAX_SENSOR_STALE_S:.0f}s"
+                if issue == "stale"
+                else issue
+            )
+            _LOGGER.warning(
+                "Excluded-device sensor %s is %s; ignoring its power reading",
+                entity_id,
+                description,
+            )
+            self._device_sensor_issues[entity_id] = issue
 
     def refresh_dynamic_power_control(self) -> dict[str, Any]:
         """Refresh dynamic-load latches and return current operation blocks.
@@ -187,7 +233,7 @@ class ExternalLoads:
                 continue
 
             eligible_keys.add(key)
-            device_power = self._read_sensor_w_opt(sensor_id)
+            device_power = self._read_device_sensor_w_opt(sensor_id)
             drawing = device_power is not None and device_power > DYNAMIC_CONTROL_ACTIVE_POWER_W
             activity_requested = self._activity_sensor_is_active(activity_sensor_id)
             was_drawing = self._dynamic_was_drawing.get(key, False)
@@ -392,6 +438,22 @@ class ExternalLoads:
             return 1.0
         return max(0.0, min(100.0, pct)) / 100.0
 
+    def _read_device_sensor_w_opt(self, entity_id: str | None) -> float | None:
+        """Read a fresh external-device power sensor as watts."""
+        if not entity_id:
+            return None
+        state = self._device_sensor_state(entity_id)
+        if state is None:
+            return None
+        try:
+            raw = float(state.state)
+        except (ValueError, TypeError):
+            self._record_device_sensor_issue(entity_id, "invalid power value")
+            return None
+        self._record_device_sensor_issue(entity_id, None)
+        unit = state.attributes.get("unit_of_measurement", "W")
+        return raw if unit == "W" else raw * 1000.0
+
     def consumption_delta_kw(self) -> float:
         """Net kW correction to apply to the home sensor for excluded-device accounting.
 
@@ -415,13 +477,15 @@ class ExternalLoads:
             power_sensor = device.get("power_sensor")
             if not power_sensor:
                 continue
-            state = self._hass.states.get(power_sensor)
-            if state is None or state.state in ("unknown", "unavailable"):
+            state = self._device_sensor_state(power_sensor)
+            if state is None:
                 continue
             try:
                 power_w = float(state.state)
             except (ValueError, TypeError):
+                self._record_device_sensor_issue(power_sensor, "invalid power value")
                 continue
+            self._record_device_sensor_issue(power_sensor, None)
             unit = state.attributes.get("unit_of_measurement", "W")
             device_kw = power_w / 1000.0 if unit == "W" else power_w
             if device.get("included_in_consumption", True):
@@ -463,6 +527,7 @@ class ExternalLoads:
         excluded_devices = self._config_entry.data.get("excluded_devices", [])
         if not excluded_devices:
             self._controller._excluded_included_adjustment = 0.0
+            self._controller._solar_surplus_discharge_blocked = False
             return 0.0
 
         solar_surplus_blocks_discharge = False
@@ -502,19 +567,24 @@ class ExternalLoads:
             if not power_sensor:
                 continue
 
-            state = self._hass.states.get(power_sensor)
-            if state is None or state.state in ("unknown", "unavailable"):
-                _LOGGER.debug("Excluded device sensor %s not available", power_sensor)
+            state = self._device_sensor_state(power_sensor)
+            included_in_consumption = device.get("included_in_consumption", True)
+            factor = self._exclusion_factor(device)
+            if state is None:
+                if included_in_consumption and factor > 0:
+                    solar_surplus_blocks_discharge = True
+                    _LOGGER.debug(
+                        "Excluded device %s has no fresh power reading; blocking battery discharge",
+                        power_sensor,
+                    )
                 continue
 
             try:
                 device_power_raw = float(state.state)
+                self._record_device_sensor_issue(power_sensor, None)
                 unit = state.attributes.get("unit_of_measurement", "W")
                 device_power = device_power_raw if unit == "W" else device_power_raw * 1000.0
-                included_in_consumption = device.get("included_in_consumption", True)
                 allow_solar_surplus = device.get("allow_solar_surplus", False)
-                # Per-device slider: fraction of demand kept excluded (100% = full).
-                factor = self._exclusion_factor(device)
 
                 if included_in_consumption:
                     if allow_solar_surplus:
@@ -565,6 +635,9 @@ class ExternalLoads:
                     _LOGGER.debug("Additional device %s consuming %.1fW (NOT in consumption, ADDING)",
                                     power_sensor, device_power)
             except (ValueError, TypeError):
+                self._record_device_sensor_issue(power_sensor, "invalid power value")
+                if included_in_consumption and factor > 0:
+                    solar_surplus_blocks_discharge = True
                 _LOGGER.warning("Could not parse device sensor %s: %s", power_sensor, state.state)
 
         # Store the included-in-consumption portion for capacity protection
@@ -766,7 +839,7 @@ class ExternalLoads:
                 continue
             if not device.get("included_in_consumption", True):
                 continue
-            total += self._read_sensor_w(device.get("power_sensor"))
+            total += self._read_device_sensor_w_opt(device.get("power_sensor")) or 0.0
         return total
 
     def check_ev_charger_state(self) -> tuple[bool, bool]:

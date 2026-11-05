@@ -71,6 +71,10 @@ If the device has expected remaining demand configured, predictive charging subt
 
     If the main meter does not see the device, Omnibattery first adds its power to reconstruct total demand, then applies the configured treatment. This prevents the same load from being removed twice.
 
+    **Power-sensor failsafe**
+
+    A numeric excluded-device reading is used only while its last report is no more than 65 seconds old (`last_reported`, falling back to `last_updated`). Unavailable or stale readings are ignored in load correction, consumption profiling, and the PV-surplus baseline. If the device is included in the main meter and has a nonzero exclusion, battery discharge is blocked until a fresh reading returns. This conservative fallback can temporarily prevent discharge even if the device is idle; a warning is logged while the sensor is unavailable or stale.
+
     **Dynamic Power Control timing**
 
     A metered device is considered to be drawing above 100 W. On first demand, battery charging yields for 30 seconds. A rise of at least 200 W in available margin, calculated from solar production minus device power, starts another 20-second yield. If no solar-production sensor is available, Omnibattery probes for 20 seconds every 5 minutes instead.

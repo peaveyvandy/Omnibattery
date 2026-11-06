@@ -125,7 +125,7 @@ async def test_ac_delivery_fills_missing_battery_charge_power():
 
 
 @pytest.mark.asyncio
-async def test_reported_zero_battery_charge_power_is_not_overridden():
+async def test_ac_delivery_replaces_near_zero_reported_battery_power():
     driver = AeccTcpDriver("battery.local")
     driver._request = AsyncMock(return_value={
         "Storage_list": [{"BatteryChargingPower": 0}],
@@ -139,7 +139,45 @@ async def test_reported_zero_battery_charge_power_is_not_overridden():
 
     snapshot = await driver.read_telemetry(["battery_power", "ac_delivered_power"])
 
-    assert snapshot["battery_power"] == 0
+    assert snapshot["battery_power"] == 408
+    assert snapshot["ac_delivered_power"] == 408
+
+
+@pytest.mark.asyncio
+async def test_ac_delivery_replaces_small_negative_battery_power_noise():
+    driver = AeccTcpDriver("battery.local")
+    driver._request = AsyncMock(return_value={
+        "Storage_list": [{"BatterySoc": 71}],
+        "SSumInfoList": {
+            "TotalBatteryOutputPower": 5,
+            "TotalPVPower": 0,
+            "TotalGridOutputPower": -408,
+            "TotalBackUpPower": 0,
+        },
+    })
+
+    snapshot = await driver.read_telemetry(["battery_power", "ac_delivered_power"])
+
+    assert snapshot["battery_power"] == 408
+    assert snapshot["ac_delivered_power"] == 408
+
+
+@pytest.mark.asyncio
+async def test_nonzero_battery_power_is_preserved_over_ac_estimate():
+    driver = AeccTcpDriver("battery.local")
+    driver._request = AsyncMock(return_value={
+        "Storage_list": [{"BatteryChargingPower": 1234}],
+        "SSumInfoList": {
+            "TotalBatteryOutputPower": 0,
+            "TotalPVPower": 0,
+            "TotalGridOutputPower": -408,
+            "TotalBackUpPower": 0,
+        },
+    })
+
+    snapshot = await driver.read_telemetry(["battery_power", "ac_delivered_power"])
+
+    assert snapshot["battery_power"] == pytest.approx(123.4)
     assert snapshot["ac_delivered_power"] == 408
 
 

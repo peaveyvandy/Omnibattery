@@ -32,6 +32,7 @@ _ENGAGE_GRACE_S = 45.0
 _CONNECT_TIMEOUT_S = 5
 _REQUEST_TIMEOUT_S = 10
 _MAX_RESPONSE_BYTES = 1_048_576
+_BATTERY_POWER_IDLE_THRESHOLD_W = 10.0
 
 _REG_EMS_ENABLE = "3000"
 _REG_SCHEDULE_MODE = "3020"
@@ -252,14 +253,14 @@ class AeccTcpDriver(BatteryDriver):
 
                 if (
                     "battery_power" in requested
-                    and not charge_values
-                    and snapshot.get("battery_power", 0.0) == 0.0
-                    and ac_delivered
+                    and abs(snapshot.get("battery_power", 0.0))
+                    <= _BATTERY_POWER_IDLE_THRESHOLD_W
+                    and ac_delivered is not None
+                    and abs(ac_delivered) > _BATTERY_POWER_IDLE_THRESHOLD_W
                 ):
-                    # AECC can omit per-battery charging power while still
-                    # reporting AC flow. Use that AC-side estimate only when
-                    # no per-battery charge reading exists; conversion losses
-                    # mean it can differ from power reaching the cells.
+                    # Near-zero AECC battery readings can contradict a clear
+                    # AC flow. Use AC as an estimate only in that idle band;
+                    # conversion losses mean it can differ from cell power.
                     snapshot["battery_power"] = ac_delivered
 
         if requested & _CONTROL_KEYS:

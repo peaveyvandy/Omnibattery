@@ -236,15 +236,31 @@ class AeccTcpDriver(BatteryDriver):
 
                 grid_output = _number(summary.get("TotalGridOutputPower"))
                 backup = _number(summary.get("TotalBackUpPower"))
+                ac_delivered = None
                 if (
                     pv is not None
                     and grid_output is not None
                     and backup is not None
-                    and DELIVERED_AC_POWER_KEY in requested
-                ):
-                    snapshot[DELIVERED_AC_POWER_KEY] = (
-                        pv - grid_output - (backup * 10)
+                    and (
+                        DELIVERED_AC_POWER_KEY in requested
+                        or "battery_power" in requested
                     )
+                ):
+                    ac_delivered = pv - grid_output - (backup * 10)
+                    if DELIVERED_AC_POWER_KEY in requested:
+                        snapshot[DELIVERED_AC_POWER_KEY] = ac_delivered
+
+                if (
+                    "battery_power" in requested
+                    and not charge_values
+                    and snapshot.get("battery_power", 0.0) == 0.0
+                    and ac_delivered
+                ):
+                    # AECC can omit per-battery charging power while still
+                    # reporting AC flow. Use that AC-side estimate only when
+                    # no per-battery charge reading exists; conversion losses
+                    # mean it can differ from power reaching the cells.
+                    snapshot["battery_power"] = ac_delivered
 
         if requested & _CONTROL_KEYS:
             response = await self._request(

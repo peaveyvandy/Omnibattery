@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from unittest.mock import AsyncMock
 
 import pytest
@@ -179,6 +180,26 @@ async def test_nonzero_battery_power_is_preserved_over_ac_estimate():
 
     assert snapshot["battery_power"] == pytest.approx(123.4)
     assert snapshot["ac_delivered_power"] == 408
+
+
+@pytest.mark.asyncio
+async def test_near_zero_battery_telemetry_logs_ac_fallback_inputs(caplog):
+    driver = AeccTcpDriver("battery.local")
+    driver._request = AsyncMock(return_value={
+        "Storage_list": [{"BatterySoc": 71}],
+        "SSumInfoList": {"TotalBatteryOutputPower": 0, "TotalPVPower": 0},
+    })
+    caplog.set_level(
+        logging.DEBUG, logger="custom_components.omnibattery.drivers.aecc"
+    )
+
+    snapshot = await driver.read_telemetry(["battery_power", "ac_delivered_power"])
+
+    assert snapshot["battery_power"] == 0
+    assert "battery_power=0.0" in caplog.text
+    assert "grid_output=None" in caplog.text
+    assert "ac_delivered=None" in caplog.text
+    assert "fallback_applied=False" in caplog.text
 
 
 def test_capabilities_allow_for_observed_aecc_response_latency():

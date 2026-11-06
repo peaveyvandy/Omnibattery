@@ -255,13 +255,29 @@ class AeccTcpDriver(BatteryDriver):
                     "battery_power" in requested
                     and abs(snapshot.get("battery_power", 0.0))
                     <= _BATTERY_POWER_IDLE_THRESHOLD_W
-                    and ac_delivered is not None
-                    and abs(ac_delivered) > _BATTERY_POWER_IDLE_THRESHOLD_W
                 ):
-                    # Near-zero AECC battery readings can contradict a clear
-                    # AC flow. Use AC as an estimate only in that idle band;
-                    # conversion losses mean it can differ from cell power.
-                    snapshot["battery_power"] = ac_delivered
+                    reported_battery_power = snapshot.get("battery_power", 0.0)
+                    fallback_applied = (
+                        ac_delivered is not None
+                        and abs(ac_delivered) > _BATTERY_POWER_IDLE_THRESHOLD_W
+                    )
+                    _LOGGER.debug(
+                        "AECC near-zero power telemetry: battery_power=%s, "
+                        "charge_values=%s, discharge=%s, pv=%s, grid_output=%s, "
+                        "backup=%s, ac_delivered=%s, fallback_applied=%s",
+                        reported_battery_power,
+                        charge_values,
+                        discharge,
+                        pv,
+                        grid_output,
+                        backup,
+                        ac_delivered,
+                        fallback_applied,
+                    )
+                    if fallback_applied:
+                        # AC-side power is an estimate; conversion losses mean
+                        # it can differ from power reaching the cells.
+                        snapshot["battery_power"] = ac_delivered
 
         if requested & _CONTROL_KEYS:
             response = await self._request(
